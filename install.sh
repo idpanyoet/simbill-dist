@@ -12,6 +12,7 @@ case "$ARCH" in
   *) echo "Arsitektur tak didukung: $ARCH"; exit 1 ;;
 esac
 echo "==> Arsitektur: $ARCH -> $BIN"
+timedatectl set-timezone Asia/Jakarta 2>/dev/null || true
 mkdir -p "$HOME_DIR/backend/config" "$HOME_DIR/frontend/uploads"
 
 echo "==> Unduh binary..."
@@ -58,6 +59,7 @@ if [ ! -f "$HOME_DIR/.env" ]; then
   echo "==> .env dibuat — ISI DB & JWT_SECRET SEBELUM start."
 fi
 grep -q '^SIMBILL_HOME=' "$HOME_DIR/.env" || echo "SIMBILL_HOME=$HOME_DIR" >> "$HOME_DIR/.env"
+grep -q '^TZ=' "$HOME_DIR/.env" || echo "TZ=Asia/Jakarta" >> "$HOME_DIR/.env"
 if [ -n "$CHROME_BIN" ]; then
   grep -q '^PUPPETEER_EXECUTABLE_PATH=' "$HOME_DIR/.env" || echo "PUPPETEER_EXECUTABLE_PATH=$CHROME_BIN" >> "$HOME_DIR/.env"
 fi
