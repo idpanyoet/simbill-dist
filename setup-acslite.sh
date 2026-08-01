@@ -52,7 +52,15 @@ ADMIN_USER="${DB_USER:-root}";      ADMIN_PASS="${DB_PASS:-}"
 case "${ADMIN_PASS}" in ""|"GANTI"*|"ubah"*|"changeme"*)
     c_info "ACS Lite dilewati: DB_PASS di ${APP_DIR}/.env belum diisi."; exit 0;;
 esac
-_dbadmin(){ mysql -h"$ADMIN_HOST" -P"$ADMIN_PORT" -u"$ADMIN_USER" -p"$ADMIN_PASS" "$@"; }
+# Admin MySQL buat CREATE DATABASE/USER goacs: user SimBill (mis. 'simbill')
+# BIASANYA cuma punya grant di billing_radius → tak bisa bikin DB baru.
+# Utamakan root via socket (fresh install punya akses penuh); fallback ke
+# creds SimBill (cukup di sebagian setup conversion / user = root).
+if mysql -N -e "SELECT 1" >/dev/null 2>&1; then
+    _dbadmin(){ mysql "$@"; }
+else
+    _dbadmin(){ mysql -h"$ADMIN_HOST" -P"$ADMIN_PORT" -u"$ADMIN_USER" -p"$ADMIN_PASS" "$@"; }
+fi
 
 # ── Unduh & pasang binary + web ────────────────────────────────────────────
 mkdir -p "${ACS_DIR}"

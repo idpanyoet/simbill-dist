@@ -68,9 +68,11 @@ mkdir -p "${WAHA_DIR}/sessions"
 # Kalau DOMAIN/WA_SECRET tak diisi manual, baca dari config SimBill di server INI
 # (app_url + wa_cmd_secret di DB) → webhook otomatis benar per-pelanggan, tanpa hardcode domain.
 APP_DIR="${APP_DIR:-/opt/simbill}"
+# .env SimBill: binary taruh di /opt/simbill/.env; source-mode di backend/.env.
+APP_ENV="${APP_DIR}/.env"; [ -f "$APP_ENV" ] || APP_ENV="${APP_DIR}/backend/.env"
 HOOK_BASE=""
-if { [ -z "$DOMAIN" ] || [ -z "$WA_SECRET" ]; } && [ -f "${APP_DIR}/backend/.env" ] && command -v mysql >/dev/null 2>&1; then
-    set -a; . "${APP_DIR}/backend/.env" 2>/dev/null; set +a
+if { [ -z "$DOMAIN" ] || [ -z "$WA_SECRET" ]; } && [ -f "$APP_ENV" ] && command -v mysql >/dev/null 2>&1; then
+    set -a; . "$APP_ENV" 2>/dev/null; set +a
     _q(){ mysql -h"${DB_HOST:-127.0.0.1}" -P"${DB_PORT:-3306}" -u"${DB_USER:-root}" -p"${DB_PASS:-}" "${DB_NAME:-billing_radius}" -N -B -e "$1" 2>/dev/null; }
     APP_URL_DB="$(_q "SELECT nilai FROM setting WHERE kunci='app_url' LIMIT 1")"
     SECRET_DB="$(_q "SELECT nilai FROM setting WHERE kunci='wa_cmd_secret' LIMIT 1")"
@@ -108,8 +110,8 @@ else
 fi
 
 # Tulis API Key + URL WAHA ke DB SimBill → panel API Key WAHA terisi otomatis.
-if [ -f "${APP_DIR}/backend/.env" ] && command -v mysql >/dev/null 2>&1; then
-    set -a; . "${APP_DIR}/backend/.env" 2>/dev/null; set +a
+if [ -f "$APP_ENV" ] && command -v mysql >/dev/null 2>&1; then
+    set -a; . "$APP_ENV" 2>/dev/null; set +a
     _dbw(){ mysql -h"${DB_HOST:-127.0.0.1}" -P"${DB_PORT:-3306}" -u"${DB_USER:-root}" -p"${DB_PASS:-}" "${DB_NAME:-billing_radius}" -e "$1" 2>/dev/null; }
     if _dbw "INSERT INTO setting (kunci,nilai) VALUES ('wa_waha_token','${KEY}') ON DUPLICATE KEY UPDATE nilai=VALUES(nilai); INSERT INTO setting (kunci,nilai) VALUES ('wa_waha_url','http://127.0.0.1:${WAHA_PORT}') ON DUPLICATE KEY UPDATE nilai=VALUES(nilai); INSERT INTO setting (kunci,nilai) VALUES ('wa_waha_session','default') ON DUPLICATE KEY UPDATE nilai=VALUES(nilai);"; then
         c_ok "API Key WAHA ditulis ke SimBill — panel terisi otomatis (tak perlu generate manual)."
