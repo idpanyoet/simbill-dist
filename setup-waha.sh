@@ -19,6 +19,11 @@ c_ok(){ echo -e "\033[32m✓\033[0m $1"; }
 c_info(){ echo -e "\033[36mℹ\033[0m $1"; }
 c_err(){ echo -e "\033[31m✗\033[0m $1"; }
 
+# apt non-interaktif (cegah needrestart/debconf nyangkut minta input)
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+export NEEDRESTART_SUSPEND=1
+
 WAHA_DIR="/opt/waha"; WAHA_NAME="waha"; WAHA_PORT="3100"; WAHA_IMG="devlikeapro/waha"
 YES=0; [ "${1:-}" = "--yes" ] && YES=1
 DOMAIN="${DOMAIN:-}"; WA_SECRET="${WA_SECRET:-}"

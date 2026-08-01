@@ -19,6 +19,12 @@
 # ============================================================================
 set -e
 
+# apt non-interaktif — cegah needrestart nanya "service mana di-restart?" & debconf prompt
+# (Ubuntu 22/24: tanpa ini installer nyangkut minta input).
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+export NEEDRESTART_SUSPEND=1
+
 REPO="idpanyoet/simbill-dist"
 BASE="${SIMBILL_BASE:-https://github.com/$REPO/releases/latest/download}"
 RAW="${SIMBILL_RAW:-https://raw.githubusercontent.com/$REPO/main}"
@@ -34,6 +40,24 @@ case "$ARCH" in
 esac
 echo "==> Arsitektur: $ARCH -> $BIN"
 mkdir -p "$HOME_DIR/backend/config" "$HOME_DIR/frontend/uploads"
+
+# 0) Node.js + pm2 (WAJIB: pm2 kelola binary, Baileys WA Mandiri butuh node>=18).
+#    Binary SimBill sendiri SEA (tak butuh node utk jalan), tapi pm2 butuh node.
+if ! command -v node >/dev/null 2>&1 || [ "$(node -v 2>/dev/null | sed -E 's/^v([0-9]+).*/\1/')" -lt 18 ] 2>/dev/null; then
+  echo "==> Pasang prasyarat (curl/wget/openssl) + Node.js 20..."
+  apt-get update -qq || true
+  apt-get install -y -qq ca-certificates curl wget gnupg openssl 2>/dev/null || true
+  curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null 2>&1 || true
+  apt-get install -y -qq nodejs >/dev/null 2>&1 || true
+else
+  apt-get install -y -qq wget openssl 2>/dev/null || true
+fi
+if ! command -v pm2 >/dev/null 2>&1; then
+  echo "==> Pasang pm2..."
+  npm install -g pm2 >/dev/null 2>&1 || true
+fi
+command -v node >/dev/null 2>&1 && echo "    node $(node -v)"
+command -v pm2  >/dev/null 2>&1 && echo "    pm2 siap" || echo "    !! pm2 belum kepasang — SimBill tak bisa di-start otomatis"
 
 # ── run_addon: ambil script dari RAW, jalankan (guarded, non-fatal) ────────
 run_addon() {  # $1=file  $2=label  $3=skip

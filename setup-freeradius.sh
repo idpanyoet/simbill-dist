@@ -15,6 +15,11 @@ c_ok(){   echo -e "\033[32m✓\033[0m $1"; }
 c_info(){ echo -e "\033[36mℹ\033[0m $1"; }
 c_err(){  echo -e "\033[31m✗\033[0m $1"; }
 
+# apt non-interaktif (cegah needrestart/debconf nyangkut minta input)
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+export NEEDRESTART_SUSPEND=1
+
 APP_DIR="${APP_DIR:-/opt/simbill}"
 [ "$(id -u)" = "0" ] || { c_err "Jalankan sebagai root."; exit 1; }
 

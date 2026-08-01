@@ -20,6 +20,11 @@ c_ok(){   echo -e "\033[32m✓\033[0m $1"; }
 c_info(){ echo -e "\033[36mℹ\033[0m $1"; }
 c_err(){  echo -e "\033[31m✗\033[0m $1"; }
 
+# apt non-interaktif (cegah needrestart/debconf nyangkut minta input)
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+export NEEDRESTART_SUSPEND=1
+
 REPO="idpanyoet/simbill-dist"
 RAW="${SIMBILL_RAW:-https://raw.githubusercontent.com/$REPO/main}"
 APP_DIR="${APP_DIR:-/opt/simbill}"
@@ -39,9 +44,12 @@ mkdir -p "$APP_DIR"
 if ! command -v mysql >/dev/null 2>&1; then
     c_info "Pasang MariaDB ..."
     apt-get update -qq || true
-    apt-get install -y -qq mariadb-server mariadb-client >/dev/null 2>&1 \
-        || { c_err "Gagal apt install mariadb-server. Pasang manual lalu ulangi."; exit 1; }
+    # JANGAN andalkan exit-code apt (hook post-invoke spt needrestart bisa bikin
+    # exit!=0 walau paket TERPASANG). Cek 'mysql' binary setelahnya.
+    apt-get install -y -qq mariadb-server mariadb-client >/dev/null 2>&1 || true
 fi
+command -v mysql >/dev/null 2>&1 \
+    || { c_err "MariaDB gagal terpasang (cek: apt-get install mariadb-server)."; exit 1; }
 systemctl enable --now mariadb >/dev/null 2>&1 || service mariadb start 2>/dev/null || true
 if ! mysqladmin ping >/dev/null 2>&1; then
     c_err "Daemon MariaDB tidak jalan. Cek: systemctl status mariadb"; exit 1
