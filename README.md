@@ -1,6 +1,6 @@
 # SimBill — Installer (binary)
 
-Repo ini hanya launcher. Aplikasi = binary di Releases.
+Repo Releases.
 
 Pasang:
   curl -fsSL https://raw.githubusercontent.com/idpanyoet/simbill-dist/main/install.sh | bash
