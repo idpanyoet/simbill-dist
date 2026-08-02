@@ -166,7 +166,6 @@ Daftar berikut mengikuti **menu panel**. Panel punya tiga tampilan sesuai peran:
 - **TR-069 / ACS** — ACS Lite (GoACS) untuk telemetri CPE/ONU (mis. redaman). Data
   basi ditandai, bukan ditampilkan hijau palsu.
 - **Provisioning MikroTik** via API (8728/8729).
-- **Lisensi** — HWID dari machine-id + MAC + hostname.
 - **Setting terpusat** (tabel `setting`): brand `app_name`, konfigurasi update
   `github_*`, token gateway, URL/API-key ACS, dll.
 - **In-app update** (lihat §4) & **multi-bahasa (i18n)** di panel.
