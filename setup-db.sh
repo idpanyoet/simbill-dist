@@ -127,15 +127,19 @@ else
     c_info "Admin sudah ada (${CNT}) — seed dilewati."
 fi
 
-# ── Sumber update in-app (panel: Pembaruan Sistem) → simbill-dist/main ──────
-# Tanpa ini, /api/update default nunjuk repo lain (SimBill-Project/master) →
-# tombol "Periksa Update" gagal. Repo publik: tak butuh github_token.
+# ── Seed setting default install baru ──────────────────────────────────────
+# 1) Sumber update in-app (panel: Pembaruan Sistem) → simbill-dist/main.
+#    Tanpa ini, /api/update default nunjuk repo lain → "Periksa Update" gagal.
+#    Repo publik: tak butuh github_token. (force set — harus repo yang benar)
+# 2) Brand aplikasi app_name = 'SimBill' — INSERT IGNORE (tak menimpa kalau
+#    operator sudah set brand sendiri). Panel baca ini utk judul/sidebar.
 mysql "${DB_NAME}" <<'SQL' 2>/dev/null \
-&& c_ok "Sumber update in-app diarahkan ke idpanyoet/simbill-dist/main." \
-|| c_info "Seed setting update dilewati."
+&& c_ok "Seed setting: update→simbill-dist/main, brand app_name=SimBill." \
+|| c_info "Seed setting default dilewati."
 INSERT INTO setting (kunci,nilai) VALUES ('github_owner','idpanyoet')   ON DUPLICATE KEY UPDATE nilai=VALUES(nilai);
 INSERT INTO setting (kunci,nilai) VALUES ('github_repo','simbill-dist') ON DUPLICATE KEY UPDATE nilai=VALUES(nilai);
 INSERT INTO setting (kunci,nilai) VALUES ('github_branch','main')       ON DUPLICATE KEY UPDATE nilai=VALUES(nilai);
+INSERT IGNORE INTO setting (kunci,nilai) VALUES ('app_name','SimBill');
 SQL
 
 # ── Tulis /opt/simbill/.env ────────────────────────────────────────────────
