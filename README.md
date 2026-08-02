@@ -84,7 +84,7 @@ balik ke tabel `radacct` — inilah **the truth of life** status online pelangga
 
 ## 2. Fitur
 
-Daftar berikut mengikuti **menu panel apa adanya**. Panel punya tiga tampilan sesuai peran: **Admin** (penuh),
+Daftar berikut mengikuti **menu panel**. Panel punya tiga tampilan sesuai peran: **Admin** (penuh),
 **Reseller**, dan **Teknisi**.
 
 ### Tampilan Admin
