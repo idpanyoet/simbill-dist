@@ -390,5 +390,4 @@ mysql billing_radius -e "SELECT kunci,nilai FROM setting WHERE kunci LIKE 'githu
 
 ---
 
-_SimBill — dikelola oleh idpanyoet. Panduan konversi lengkap:
-`PANDUAN-KONVERSI-KE-BINARY.md`._
+_SimBill — dikelola oleh idpanyoet. 
