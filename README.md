@@ -219,16 +219,8 @@ Buka `http://IP-SERVER:3000/admin` → login `admin` / `admin123` →
 
 ### A. Lewat panel (disarankan) — **Pembaruan Sistem**
 Panel cek versi ke Releases repo ini, unduh binary baru, dan restart otomatis.
-Agar berfungsi, setting `github_*` di DB harus benar (di install baru sudah
-di-seed otomatis):
 
-| kunci | nilai |
-|---|---|
-| `github_owner` | `idpanyoet` |
-| `github_repo` | `simbill-dist` |
-| `github_branch` | `main` |
-
-Repo publik → tak perlu `github_token`. Klik **Periksa Update** lalu **Update
+Repo publik. Klik **Periksa Update** lalu **Update
 Sekarang**.
 
 ### B. Lewat CLI
