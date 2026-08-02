@@ -2,8 +2,7 @@
 
 Billing ISP all-in-one: manajemen pelanggan PPPoE & Hotspot, RADIUS (FreeRADIUS),
 tagihan/invoice, notifikasi WhatsApp, monitoring perangkat TR-069 (ACS), reseller,
-dan panel web satu halaman. Didistribusikan sebagai **binary** (Node SEA) — tak
-perlu pasang Node runtime terpisah untuk menjalankan aplikasinya.
+dan panel web satu halaman.
 
 Repo ini berisi **installer + rilis binary**. Kode sumber tidak di sini; yang
 dirilis adalah artefak siap-pasang di **Releases**.
