@@ -295,8 +295,7 @@ pm2 save
   atau WA Mandiri.
 - DB `billing_radius` yang sudah ada TIDAK ditimpa (`setup-db` SKIP kalau tabel
   `admin` ada) — tapi di konversi kita SKIP DB total, jadi aman.
-- Lisensi: HWID dari machine-id+MAC+hostname — konversi di mesin SAMA tak mengubah
-  HWID, lisensi tetap valid. `TZ=Asia/Jakarta` wajib.
+- `TZ=Asia/Jakarta` wajib.
 
 ---
 
