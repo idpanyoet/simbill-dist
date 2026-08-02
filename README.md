@@ -382,8 +382,7 @@ mysql billing_radius -e "SELECT kunci,nilai FROM setting WHERE kunci LIKE 'githu
 
 ## 10. Catatan produksi
 
-- **Deploy ke produksi.** Build, rilis, dan uji di dev;
-  tapi restart pm2 produksi, query MariaDB produksi, dan uji perangkat.
+- **Deploy ke produksi.** Build, rilis, dan uji ;query MariaDB produksi, dan uji perangkat.
 - Uji setiap rilis di **1 server / 1 pelanggan** dulu sebelum massal.
 - `radacct` = kebenaran hidup — **jangan** bulk-`UPDATE acctstoptime`. Operasi DB
   besar → batch kecil + jeda (hindari deadlock dengan FreeRADIUS).
