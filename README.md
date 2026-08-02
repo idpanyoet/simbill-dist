@@ -37,7 +37,7 @@ Repo ini berisi **installer.
 SimBill = panel web (Node/Express, disajikan dari satu file `frontend/admin.html`)
 di atas **MariaDB `billing_radius`** yang dipakai bareng **FreeRADIUS**. Router
 MikroTik jadi NAS yang meng-auth pelanggan ke RADIUS; hasil sesi (accounting)
-balik ke tabel `radacct` — inilah **kebenaran hidup** status online pelanggan.
+balik ke tabel `radacct` — inilah **the truth of life** status online pelanggan.
 
 ```
                         ┌───────────────────────────────────────────────┐
