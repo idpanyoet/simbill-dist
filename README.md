@@ -241,7 +241,7 @@ Kalau update mentok, lihat [§8 Troubleshoot](#8-troubleshoot-cepat).
 
 ---
 
-## 5. Migrasi/konversi dari billing lama (.js) ke binary
+## 5. Migrasi/konversi dari billing lama (.js) ke Versi Sekarang
 
 Untuk instalasi yang **sudah jalan** pakai `node server.js`. **DB & data pelanggan
 TIDAK berubah — bisa rollback.** Uji di **1 pelanggan** dulu.
