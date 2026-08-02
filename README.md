@@ -321,13 +321,13 @@ Semua script apt sudah non-interaktif (`NEEDRESTART_SUSPEND=1`,
 **Layout `/opt/simbill` (binary):**
 ```
 /opt/simbill/
-├── simbill                 # binary (Node SEA)
+├── simbill                 # billing-radius
 ├── VERSION                 # versi terpasang (dibaca in-app update)
 ├── .env                    # DB creds + JWT_SECRET + SIMBILL_HOME + TZ
 ├── backend/
 │   └── node_modules/       # dependency produksi (ikut puppeteer; tanpa whatsapp-web.js)
 └── frontend/
-    ├── admin.html          # panel (rilis: versi minified)
+    ├── admin.html          # panel 
     └── uploads/            # aset upload (TIDAK ditimpa saat update)
 ```
 Add-on lain: `/opt/wa-gateway` (WA Mandiri), `/opt/acs` (`.env` ACS Lite),
