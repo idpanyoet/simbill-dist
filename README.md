@@ -4,8 +4,7 @@ Billing ISP all-in-one: manajemen pelanggan PPPoE & Hotspot, RADIUS (FreeRADIUS)
 tagihan/invoice, notifikasi WhatsApp, monitoring perangkat TR-069 (ACS), reseller,
 dan panel web satu halaman.
 
-Repo ini berisi **installer + rilis binary**. Kode sumber tidak di sini; yang
-dirilis adalah artefak siap-pasang di **Releases**.
+Repo ini berisi **installer.
 
 - Pasang cepat (VPS Ubuntu kosong):
   ```bash
