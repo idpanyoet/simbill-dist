@@ -1,4 +1,4 @@
-# SimBill — Billing ISP (Binary Distribution)
+# SimBill — Billing ISP
 
 Billing ISP all-in-one: manajemen pelanggan PPPoE & Hotspot, RADIUS (FreeRADIUS),
 tagihan/invoice, notifikasi WhatsApp, monitoring perangkat TR-069 (ACS), reseller,
