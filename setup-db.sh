@@ -127,6 +127,17 @@ else
     c_info "Admin sudah ada (${CNT}) — seed dilewati."
 fi
 
+# ── Sumber update in-app (panel: Pembaruan Sistem) → simbill-dist/main ──────
+# Tanpa ini, /api/update default nunjuk repo lain (SimBill-Project/master) →
+# tombol "Periksa Update" gagal. Repo publik: tak butuh github_token.
+mysql "${DB_NAME}" <<'SQL' 2>/dev/null \
+&& c_ok "Sumber update in-app diarahkan ke idpanyoet/simbill-dist/main." \
+|| c_info "Seed setting update dilewati."
+INSERT INTO setting (kunci,nilai) VALUES ('github_owner','idpanyoet')   ON DUPLICATE KEY UPDATE nilai=VALUES(nilai);
+INSERT INTO setting (kunci,nilai) VALUES ('github_repo','simbill-dist') ON DUPLICATE KEY UPDATE nilai=VALUES(nilai);
+INSERT INTO setting (kunci,nilai) VALUES ('github_branch','main')       ON DUPLICATE KEY UPDATE nilai=VALUES(nilai);
+SQL
+
 # ── Tulis /opt/simbill/.env ────────────────────────────────────────────────
 touch "${APP_DIR}/.env"
 _set_env(){  # key value — set/replace di .env
