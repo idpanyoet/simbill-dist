@@ -382,7 +382,7 @@ mysql billing_radius -e "SELECT kunci,nilai FROM setting WHERE kunci LIKE 'githu
 
 ## 10. Catatan produksi
 
-- **Deploy ke produksi = tangan operator.** Build, rilis, dan uji boleh di dev;
+- **Deploy ke produksi.** Build, rilis, dan uji boleh di dev;
   tapi restart pm2 produksi, query MariaDB produksi, dan uji perangkat asli
   dilakukan manual oleh operator.
 - Uji setiap rilis di **1 server / 1 pelanggan** dulu sebelum massal.
@@ -393,4 +393,4 @@ mysql billing_radius -e "SELECT kunci,nilai FROM setting WHERE kunci LIKE 'githu
 ---
 
 _SimBill — dikelola oleh idpanyoet. Panduan konversi lengkap:
-`PANDUAN-KONVERSI-KE-BINARY.md`. SOP rilis: `SOP-SimBill-Binary.md`._
+`PANDUAN-KONVERSI-KE-BINARY.md`._
