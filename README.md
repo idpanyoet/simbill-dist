@@ -84,8 +84,7 @@ balik ke tabel `radacct` — inilah **the truth of life** status online pelangga
 
 ## 2. Fitur
 
-Daftar berikut mengikuti **menu panel apa adanya** (1:1 dengan sidebar
-`admin.html`). Panel punya tiga tampilan sesuai peran: **Admin** (penuh),
+Daftar berikut mengikuti **menu panel apa adanya**. Panel punya tiga tampilan sesuai peran: **Admin** (penuh),
 **Reseller**, dan **Teknisi**.
 
 ### Tampilan Admin
@@ -174,11 +173,11 @@ Daftar berikut mengikuti **menu panel apa adanya** (1:1 dengan sidebar
 
 ---
 
-## 3. Instalasi (fresh VPS, turnkey)
+## 3. Instalasi (fresh VPS)
 
 ### Syarat
 - **Ubuntu** 22.04 / 24.04, akses **root**.
-- **RAM ≥ ~1 GB** (WAHA + Baileys butuh memori).
+- **RAM ≥ ~4 GB** (WAHA + Baileys butuh memori).
 - CPU **x86-64-v2** kalau mau pakai **WAHA** (butuh `sharp`). VPS dengan CPU
   di-mask → WAHA crash-loop; service lain tetap jalan. Solusi: CPU host-passthrough.
 - `arm64`: perlu build binary + acslite versi arm64 terpisah (belum default).
