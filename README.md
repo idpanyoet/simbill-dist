@@ -384,7 +384,7 @@ mysql billing_radius -e "SELECT kunci,nilai FROM setting WHERE kunci LIKE 'githu
 
 - **Deploy ke produksi.** Build, rilis, dan uji ;query MariaDB produksi, dan uji perangkat.
 - Uji setiap rilis di **1 server / 1 pelanggan** dulu sebelum massal.
-- `radacct` = kebenaran hidup — **jangan** bulk-`UPDATE acctstoptime`. Operasi DB
+- `radacct` = catatan sesi yang sebenarnya — **jangan** bulk-`UPDATE acctstoptime`. Operasi DB
   besar → batch kecil + jeda (hindari deadlock dengan FreeRADIUS).
 - Zona waktu server = **`Asia/Jakarta` (WIB)**; log server biasanya UTC.
 
