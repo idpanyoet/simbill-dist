@@ -177,7 +177,7 @@ Daftar berikut mengikuti **menu panel**. Panel punya tiga tampilan sesuai peran:
 ### Syarat
 - **Ubuntu** 22.04 / 24.04, akses **root**.
 - **RAM ≥ ~4 GB** (WAHA + Baileys butuh memori).
-- CPU **x86-64-v2** kalau mau pakai **WAHA** (butuh `sharp`). VPS dengan CPU
+- CPU 2 Core, **x86-64-v2** kalau mau pakai **WAHA** (butuh `sharp`). VPS dengan CPU
   di-mask → WAHA crash-loop; service lain tetap jalan. Solusi: CPU host-passthrough.
 - `arm64`: perlu build binary + acslite versi arm64 terpisah (belum default).
 
