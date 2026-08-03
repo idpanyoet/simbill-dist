@@ -89,7 +89,7 @@ Daftar berikut mengikuti **menu panel**. Panel punya tiga tampilan sesuai peran:
 
 ### Tampilan Admin
 
-<img src="/simbill.png" alt="simbill — tampilan" width="800">
+<img src="/simbill.png" alt="simbill — tampilan" width="850">
 
 ### Yang menopang di belakang layar
 - **RADIUS** — FreeRADIUS pakai `billing_radius`: kredensial di `radcheck`, grup
