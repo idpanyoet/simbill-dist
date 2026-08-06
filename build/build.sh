@@ -45,7 +45,7 @@ echo "    node_modules.tar.gz: $(du -h "$OUT/node_modules.tar.gz"|cut -f1)"
 # (OPSIONAL WA-QR) tar czf "$OUT/waqr-addon.tar.gz" -C backend node_modules/whatsapp-web.js
 
 echo "==> [4/5] Frontend (tanpa uploads = data pelanggan)"
-if [ "${MINIFY_HTML:-0}" = "1" ] && [ -f frontend/admin.html ]; then
+if [ "${MINIFY_HTML:-1}" = "1" ] && [ -f frontend/admin.html ]; then
   rm -rf "$OUT/fe"; cp -a frontend "$OUT/fe"; rm -rf "$OUT/fe/uploads"
   # minify SEMUA .html (fallback ke asli bila minify gagal / hasil kosong)
   find "$OUT/fe" -name '*.html' | while read -r h; do
