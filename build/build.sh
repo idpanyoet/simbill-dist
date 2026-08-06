@@ -46,15 +46,18 @@ echo "    node_modules.tar.gz: $(du -h "$OUT/node_modules.tar.gz"|cut -f1)"
 
 echo "==> [4/5] Frontend (tanpa uploads = data pelanggan)"
 if [ "${MINIFY_HTML:-0}" = "1" ] && [ -f frontend/admin.html ]; then
-  rm -rf "$OUT/fe"; cp -a frontend "$OUT/fe"
-  if npx --yes html-minifier-terser --collapse-whitespace --conservative-collapse \
-       --remove-comments --minify-css true --minify-js true \
-       "$OUT/fe/admin.html" -o "$OUT/fe/admin.html.min" 2>/dev/null; then
-    mv "$OUT/fe/admin.html.min" "$OUT/fe/admin.html"
-    echo "    admin.html diminify ($(du -h "$OUT/fe/admin.html"|cut -f1))"
-  else
-    echo "    !! minify gagal — pakai admin.html asli"
-  fi
+  rm -rf "$OUT/fe"; cp -a frontend "$OUT/fe"; rm -rf "$OUT/fe/uploads"
+  # minify SEMUA .html (fallback ke asli bila minify gagal / hasil kosong)
+  find "$OUT/fe" -name '*.html' | while read -r h; do
+    if npx --yes html-minifier-terser --collapse-whitespace --conservative-collapse \
+         --remove-comments --minify-css true --minify-js true \
+         "$h" -o "$h.min" 2>/dev/null && [ -s "$h.min" ]; then
+      mv "$h.min" "$h"
+      echo "    minify $(basename "$h") -> $(du -h "$h"|cut -f1)"
+    else
+      rm -f "$h.min"; echo "    !! minify gagal $(basename "$h") — pakai asli"
+    fi
+  done
   tar czf "$OUT/frontend.tar.gz" --exclude='uploads' -C "$OUT/fe" .
   rm -rf "$OUT/fe"
 else
