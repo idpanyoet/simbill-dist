@@ -43,6 +43,17 @@ if [ "$NEW_VER" = "?" ] || [ "$NEW_VER" != "$CUR_VER" ]; then
   mkdir -p "$HOME_DIR/frontend/uploads"
 
   [ "$NEW_VER" != "?" ] && echo "$NEW_VER" > "$HOME_DIR/VERSION"
+
+  # ── Bersihkan sampah peninggalan migrasi .js->binary (idempoten, BEBAS RISIKO).
+  #    Di install fresh file2 ini tak ada -> rm dilewati (hanya kena VPS hasil
+  #    migrasi). HANYA hapus yang pasti tak dipakai binary: clone git source lama,
+  #    folder backup install, dan file *.bak. TIDAK menyentuh backend/database
+  #    source yg mungkin dibaca saat boot.
+  echo "==> Bersihkan sisa file .js lama (bila ada)..."
+  rm -rf "$HOME_DIR/.git" "$HOME_DIR/_backup" 2>/dev/null || true
+  rm -f "$HOME_DIR"/backend/server.js.bak* "$HOME_DIR"/backend/package-lock.json.bak \
+        "$HOME_DIR"/backend/node-routeros-*.tgz 2>/dev/null || true
+
   pm2 restart "$SVC"
   echo "==> SimBill $NEW_VER. Rollback: mv $HOME_DIR/simbill.bak $HOME_DIR/simbill && pm2 restart $SVC"
 fi
