@@ -175,11 +175,17 @@ run_addon "setup-wa-gateway.sh"  "WA Mandiri (Baileys :3200)" "${SIMBILL_SKIP_MA
 run_addon "setup-waha.sh"        "WAHA (Docker :3100)"        "${SIMBILL_SKIP_WAHA:-0}"
 run_addon "setup-acslite.sh"     "ACS Lite (GoACS :7547)"     "${SIMBILL_SKIP_ACS:-0}"
 
+# IP untuk pesan panel: utamakan IP publik (VPS cloud ber-NAT membaca IP privat via hostname -I).
+LOCALIP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+PUBIP="$(curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || curl -fsS --max-time 5 https://ifconfig.me 2>/dev/null || true)"
+PANELIP="${PUBIP:-$LOCALIP}"
+
 echo ""
 echo "======================================================================"
 echo " SELESAI."
 echo "   SimBill   : pm2 logs $SVC   (harus '✅ Billing RADIUS berjalan')"
-echo "   Panel     : http://$(hostname -I | awk '{print $1}'):3000/admin  (admin / admin123)"
+echo "   Panel     : http://${PANELIP}:3000/admin  (admin / admin123)"
+[ -n "$PUBIP" ] && [ "$PUBIP" != "$LOCALIP" ] && echo "               (IP publik VPS - buka port 3000 di Security Group/firewall cloud bila belum)"
 echo "   FreeRADIUS: systemctl is-active freeradius ; ss -lunp | grep 1812"
 echo "   WA Mandiri: curl -s http://127.0.0.1:3200/ ; echo"
 echo "   WAHA      : docker ps | grep waha"
