@@ -181,5 +181,17 @@ else
   c_ok "Port RADIUS/L2TP dibuka via iptables."
 fi
 
+# 7) Cegah DISK PENUH: log 'detail' accounting FreeRADIUS (detail-YYYYMMDD per-NAS)
+#    TAK dirotasi & bisa membengkak puluhan GB → disk penuh → MariaDB mati → billing
+#    502 crash-loop. Data accounting tetap aman di tabel SQL 'radacct'; file detail
+#    hanya cadangan mentah. Cron harian hapus yang >3 hari.
+cat > /etc/cron.daily/simbill-clean-radacct <<'CRONEOF'
+#!/bin/bash
+find /var/log/freeradius/radacct -type f -name 'detail-*' -mtime +3 -delete 2>/dev/null
+find /var/log/freeradius/radacct -type d -empty -delete 2>/dev/null
+CRONEOF
+chmod +x /etc/cron.daily/simbill-clean-radacct
+c_ok "Cron pembersih log radacct terpasang (detail >3 hari dihapus — cegah disk penuh)."
+
 c_info "Daftarkan MikroTik di panel SimBill (menu RADIUS/NAS) → tabel 'nas', lalu tes PPPoE."
 c_info "Kalau VPS di belakang firewall cloud, buka juga UDP 1812/1813 di Security Group."

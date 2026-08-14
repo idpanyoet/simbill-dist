@@ -167,6 +167,11 @@ else
   echo "pm2 tak ada. Install: npm i -g pm2"
 fi
 
+# 10b) Batasi journald biar log sistem tak makan disk tanpa batas (cegah disk penuh).
+mkdir -p /etc/systemd/journald.conf.d
+printf '[Journal]\nSystemMaxUse=500M\n' > /etc/systemd/journald.conf.d/99-simbill.conf
+systemctl restart systemd-journald >/dev/null 2>&1 || true
+
 # 11) Service pendamping (butuh DB yang sudah dibuat setup-db)
 echo ""
 echo "==> Memasang FreeRADIUS + service pendamping..."
