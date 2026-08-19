@@ -17,7 +17,7 @@ ARCH_TAG="$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')"
 BANNER='require=(function(){const{createRequire:c}=require("node:module");const p=require("node:path");const b=process.env.SIMBILL_HOME?p.join(process.env.SIMBILL_HOME,"backend","_.js"):p.join(p.dirname(process.execPath),"backend","_.js");return c(b);})();'
 
 echo "==> [1/5] Bundle kode backend (esbuild --packages=external + banner)"
-npx --yes esbuild backend/server.js --bundle --platform=node --target=node20 \
+npx --yes esbuild backend/entry.js --bundle --platform=node --target=node20 \
     --packages=external --banner:js="$BANNER" --outfile="$OUT/bundle.js"
 head -c 90 "$OUT/bundle.js" | grep -q "createRequire" || { echo "!! banner TIDAK masuk — STOP"; exit 1; }
 echo "    bundle: $(du -h "$OUT/bundle.js"|cut -f1)"
