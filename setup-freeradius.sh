@@ -187,7 +187,23 @@ fi
 #    hanya cadangan mentah. Cron harian hapus yang >3 hari.
 cat > /etc/cron.daily/simbill-clean-radacct <<'CRONEOF'
 #!/bin/bash
-find /var/log/freeradius/radacct -type f -name 'detail-*' -mtime +3 -delete 2>/dev/null
+# Buang berkas detail FreeRADIUS yang lebih tua dari SIMPAN hari.
+#
+# Memakai TANGGAL DI NAMA berkas, BUKAN mtime. Alasannya: detail-YYYYMMDD baru
+# berhenti ditulis pukul 23:59, jadi mtime-nya = AKHIR hari itu; `find -mtime`
+# membulatkan umur ke hari penuh, sehingga `-mtime +3` baru cocok setelah ~4,5
+# hari. Akibatnya cron tampak jalan tapi tak pernah menghapus apa pun dan
+# berkas menumpuk 5 hari per NAS (dash 28 Agu 2026: 812MB, ~190MB/hari/NAS).
+SIMPAN=3
+BATAS=$(date -d "-${SIMPAN} days" +%Y%m%d)
+find /var/log/freeradius/radacct -type f -name 'detail-*' 2>/dev/null | while read -r f; do
+    d="${f##*detail-}"
+    case "$d" in
+        [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9])
+            [ "$d" -lt "$BATAS" ] && rm -f "$f"
+            ;;
+    esac
+done
 find /var/log/freeradius/radacct -type d -empty -delete 2>/dev/null
 CRONEOF
 chmod +x /etc/cron.daily/simbill-clean-radacct
