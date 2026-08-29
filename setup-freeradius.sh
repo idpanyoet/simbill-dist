@@ -3,7 +3,7 @@
 #  setup-freeradius.sh — pasang & konfigurasi FreeRADIUS utk SimBill.
 #  Diekstrak dari installer asli (proven di produksi). Arahkan modul sql ke
 #  DB billing_radius, buang blok tls{} (Ubuntu 24), matikan filter_username
-#  dot-separator (user@rfnet), verifikasi freeradius -XC, buka firewall.
+#  dot-separator (user@rfnet) & spasi (arpan panglima), verifikasi freeradius -XC, buka firewall.
 #
 #  Baca DB dari /opt/simbill/.env. Idempoten. GAGAL -XC => TIDAK enable-now
 #  (biar tidak mematikan RADIUS yang mungkin sudah jalan).
@@ -126,25 +126,52 @@ for site in "${RADDIR}sites-enabled/default" "${RADDIR}sites-enabled/inner-tunne
   [ -f "$site" ] && sed -i 's/^\([[:space:]]*\)#[[:space:]]*sql[[:space:]]*$/\1sql/' "$site"
 done
 
-# 3b) Matikan filter_username dot-separator (biar user@rfnet tak di-reject)
+# 3b) Izinkan username SAH yang ditolak filter_username bawaan FreeRADIUS:
+#       - realm tanpa titik : 'itawati@rfnet'
+#       - username berspasi : 'arpan panglima'
+#     Keduanya ditolak PALING AWAL di authorize (sebelum sql), jadi passwordnya
+#     tak pernah sempat dicek. Ditambah reject_delay=1 detik sementara MikroTik
+#     menyerah di ~900ms, router mencatatnya sebagai "radius timeout" dan bukan
+#     "rejected" -- gejala menyesatkan yang membuat orang mencari masalah jaringan.
+#     Idempotent lewat penanda #SIMBILL-OFF PER BARIS, bukan penjaga di luar:
+#     install lama yang sudah ditambal untuk realm tetap harus kebagian tambalan
+#     spasi. Penjaga lama justru melewatkannya.
 FILTERPOL="${RADDIR}policy.d/filter"
-if [ -f "$FILTERPOL" ] && ! grep -q '#SIMBILL-OFF' "$FILTERPOL"; then
+if [ -f "$FILTERPOL" ]; then
   python3 - "$FILTERPOL" <<'PYFILT'
 import sys, re
 f = sys.argv[1]
 lines = open(f).read().splitlines()
-out, i = [], 0
+
+# Dua blok filter_username yang menolak username SAH di lapangan:
+#   a) dot-separator : menolak '@' yang setelahnya tak ada titik  -> 'itawati@rfnet'
+#   b) whitespace    : menolak spasi                              -> 'arpan panglima'
+# Keduanya berjalan PALING AWAL di authorize, sebelum sql, jadi password tak pernah
+# sempat dicek. Ditambah reject_delay=1 detik, MikroTik (timeout ~900ms) menyerah
+# lebih dulu sehingga yang tercatat di router "radius timeout", bukan "rejected" --
+# gejala yang menyesatkan saat mendiagnosa.
+POLA = [
+    (r'User-Name\s*!~\s*/@.*\\\..*/',  'dot-separator'),
+    (r'User-Name\s*=~\s*/ /\s*\)',     'spasi'),
+]
+out, i, patched = [], 0, {}
 while i < len(lines):
     ln = lines[i]
-    if re.search(r'User-Name\s*!~\s*/@.*\\\..*/', ln) and '{' in ln:
+    # Sudah dinonaktifkan pada jalannya yang lalu -> lewati (idempotent).
+    if ln.lstrip().startswith('#SIMBILL-OFF'):
+        out.append(ln); i += 1; continue
+    nama = next((nm for pat, nm in POLA if re.search(pat, ln)), None)
+    if nama and '{' in ln:
         depth = ln.count('{') - ln.count('}')
         out.append('#SIMBILL-OFF ' + ln); i += 1
         while i < len(lines) and depth > 0:
             depth += lines[i].count('{') - lines[i].count('}')
             out.append('#SIMBILL-OFF ' + lines[i]); i += 1
+        patched[nama] = patched.get(nama, 0) + 1
         continue
     out.append(ln); i += 1
 open(f, 'w').write('\n'.join(out) + '\n')
+print('  filter_username dinonaktifkan: ' + (', '.join('%s=%d' % kv for kv in sorted(patched.items())) or 'tak ada blok baru (sudah bersih)'))
 PYFILT
 fi
 
