@@ -1,11 +1,17 @@
 #!/bin/bash
 # ============================================================================
-#  update.sh v6 — updater SimBill (binary). Backup + rollback aman.
+#  update.sh v7 — updater SimBill (binary). Backup + rollback aman.
 #  Chrome TIDAK diunduh ulang. node_modules -> backend/.
 #  Add-on (WAHA/Mandiri/ACS) TIDAK disentuh default (mereka self-restart via
 #  pm2/docker/systemd). Refresh add-on: SIMBILL_UPDATE_ADDONS=1 bash update.sh
 #
-#  v6 (8 Sep 2026) — instalasi .js lama DIKUNCI (bukan sekadar ditolak):
+#  v7 (8 Sep 2026) — VERSION ditulis SEBELUM restart. Saat update dipicu dari
+#   PANEL, update.sh adalah ANAK dari proses billing-radius; `pm2 restart
+#   billing-radius` membunuhnya sebelum baris tulis-VERSION (yang di v5/v6
+#   dipindah ke SESUDAH restart) sempat jalan → binary baru terpasang tapi
+#   angka versi tak berubah. Aman: .js sudah dikunci di atas, jadi yang
+#   sampai ke sini pasti binary & swap sudah mengubah kode di disk.
+#  v6 — instalasi .js lama DIKUNCI (bukan sekadar ditolak):
 #   * Bila service masih menjalankan .js, panel diganti halaman 'hubungi kami
 #     untuk migrasi ke SimBill Binary' dan owner menghubungi kami untuk
 #     dipindahkan (spt kasus adizka). DB & RADIUS tidak disentuh; internet
@@ -153,11 +159,13 @@ if [ "$NEW_VER" = "?" ] || [ "$NEW_VER" != "$CUR_VER" ]; then
   rm -f "$HOME_DIR"/backend/server.js.bak* "$HOME_DIR"/backend/package-lock.json.bak \
         "$HOME_DIR"/backend/node-routeros-*.tgz 2>/dev/null || true
 
-  # ── Restart: cari pengelola service yang benar-benar dipakai ──────────────
+  # ── Tentukan cara restart DULU (jangan tulis VERSION kalau tak ada cara
+  #    menjalankan binary baru). .js sudah dikunci di atas, jadi di titik ini
+  #    instalasi pasti binary.
   if command -v pm2 >/dev/null 2>&1 && pm2 describe "$SVC" >/dev/null 2>&1; then
-    pm2 restart "$SVC"
+    RESTART_CMD="pm2 restart $SVC"
   elif systemctl list-unit-files 2>/dev/null | grep -q "^$SVC\.service"; then
-    systemctl restart "$SVC"
+    RESTART_CMD="systemctl restart $SVC"
   else
     echo
     echo "GAGAL RESTART: service '$SVC' tidak ditemukan di pm2 maupun systemd."
@@ -168,17 +176,22 @@ if [ "$NEW_VER" = "?" ] || [ "$NEW_VER" != "$CUR_VER" ]; then
     exit 4
   fi
 
-  # ── VERSION ditulis DI SINI, sesudah restart terbukti berhasil ────────────
-  sleep 2
-  SESUDAH=$(jalan_apa)
-  if [ "$SESUDAH" = "js" ]; then
-    echo
-    echo "GAGAL: sesudah restart, service MASIH menjalankan kode .js lama."
-    echo "       VERSION tidak diubah. Lakukan konversi ke binary lebih dulu."
-    exit 3
-  fi
+  # ── VERSION ditulis SEBELUM restart ───────────────────────────────────────
+  # KRUSIAL: kalau update dipicu dari PANEL, update.sh ini adalah ANAK dari
+  # proses billing-radius. Perintah restart di bawah membunuh billing-radius,
+  # sehingga update.sh ikut mati SEBELUM baris apa pun sesudah restart sempat
+  # jalan. Karena binary baru SUDAH terpasang (swap di atas) dan restart
+  # dikerjakan pm2/systemd (daemon terpisah, tetap tuntas walau update.sh mati),
+  # VERSION harus ditulis DI SINI — sebelum restart — supaya angka versinya
+  # benar-benar ikut naik. (Di v5/v6 baris ini ada SESUDAH restart → tak pernah
+  # tercapai dari panel: binary naik, versi diam. Kejadian G-G & cmi 8 Sep 2026.)
   [ "$NEW_VER" != "?" ] && echo "$NEW_VER" > "$HOME_DIR/VERSION"
-  echo "==> SimBill $NEW_VER. Rollback: mv $HOME_DIR/simbill.bak $HOME_DIR/simbill && pm2 restart $SVC"
+  echo "==> SimBill $NEW_VER (binary terpasang, service direstart)."
+  echo "    Rollback: mv $HOME_DIR/simbill.bak $HOME_DIR/simbill && $RESTART_CMD"
+
+  # Restart PALING AKHIR. Bila ini membunuh update.sh (kasus panel), semua yang
+  # penting sudah selesai di atas.
+  $RESTART_CMD
 fi
 
 # Opsional: refresh add-on (idempoten). Default TIDAK, biar update cepat.
