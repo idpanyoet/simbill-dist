@@ -1,11 +1,16 @@
 #!/bin/bash
 # ============================================================================
-#  update.sh v5 — updater SimBill (binary). Backup + rollback aman.
+#  update.sh v6 — updater SimBill (binary). Backup + rollback aman.
 #  Chrome TIDAK diunduh ulang. node_modules -> backend/.
 #  Add-on (WAHA/Mandiri/ACS) TIDAK disentuh default (mereka self-restart via
 #  pm2/docker/systemd). Refresh add-on: SIMBILL_UPDATE_ADDONS=1 bash update.sh
 #
-#  v5 (8 Sep 2026) — dua penjaga, lahir dari kejadian nyata di server pelanggan:
+#  v6 (8 Sep 2026) — instalasi .js lama DIKUNCI (bukan sekadar ditolak):
+#   * Bila service masih menjalankan .js, panel diganti halaman 'hubungi kami
+#     untuk migrasi ke SimBill Binary' dan owner menghubungi kami untuk
+#     dipindahkan (spt kasus adizka). DB & RADIUS tidak disentuh; internet
+#     pelanggan tetap jalan; reversibel penuh.
+#  v5 — dua penjaga, lahir dari kejadian nyata di server pelanggan:
 #   * MENOLAK jalan bila service masih menjalankan kode .js lama. Skrip ini
 #     hanya mengganti binary/node_modules/frontend/VERSION dan TIDAK PERNAH
 #     menyentuh backend/*.js, sehingga di install .js hasilnya "berhasil" tanpa
@@ -48,38 +53,70 @@ jalan_apa() {
   esac
 }
 
+# ── KUNCI instalasi .js lama ────────────────────────────────────────────────
+# Server yang masih menjalankan kode .js (baik yang binary-nya belum ada maupun
+# yang binary-nya SUDAH terunduh tapi pm2 masih menunjuk server.js — kasus
+# adizka) tidak bisa di-update dengan aman oleh skrip ini: ia hanya mengganti
+# binary/frontend/VERSION, tidak pernah menyentuh backend/*.js. Daripada
+# "berhasil" secara semu, panel dikunci dengan halaman migrasi supaya PEMILIK
+# melihatnya dan menghubungi kami untuk dipindahkan ke SimBill Binary.
+# DB & FreeRADIUS TIDAK disentuh — internet pelanggan tetap jalan.
+kunci_js() {
+  local port ck lock_dir lock_js
+  port="$(grep -E '^PORT=' "$HOME_DIR/.env" 2>/dev/null | head -1 | cut -d= -f2 | tr -d ' \r')"
+  port="${port:-3000}"
+  lock_dir="$HOME_DIR/.kunci-migrasi"; lock_js="$lock_dir/kunci-server.js"
+  mkdir -p "$lock_dir"
+
+  # simpan cara service lama dijalankan, utk restore saat konversi
+  pm2 describe "$SVC" > "$lock_dir/pm2-describe.txt" 2>/dev/null || true
+  pm2 save >/dev/null 2>&1 || true
+  cp -f "$HOME/.pm2/dump.pm2" "$lock_dir/dump.pm2.simpan" 2>/dev/null || true
+
+  cat > "$lock_js" <<'JSEOF'
+const http=require('http');
+const PORT=process.env.KUNCI_PORT||3000;
+const WA=(process.env.KUNCI_WA||'').replace(/[^0-9]/g,'').replace(/^0/,'62');
+const HTML=`<!doctype html><html lang=id><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>SimBill — Perlu Migrasi</title><style>:root{color-scheme:light dark}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+background:#0d1117;color:#e6edf3;font:16px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;padding:24px}
+.k{max-width:520px;background:#161b22;border:1px solid #30363d;border-radius:16px;padding:40px;text-align:center}
+.i{font-size:44px}.h{font-size:22px;font-weight:700;margin:.3em 0 .4em}p{color:#9da7b3;margin:.6em 0}
+a{display:inline-block;margin-top:18px;background:#238636;color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:600}
+.v{margin-top:22px;font-size:12px;color:#6e7681}</style></head><body><div class=k>
+<div class=i>🔧</div><div class=h>SimBill perlu ditingkatkan</div>
+<p>Versi SimBill lama pada server ini sudah tidak didukung dan perlu dipindahkan
+ke <b>SimBill Binary</b> agar aman dan berfungsi penuh.</p>
+<p>Silakan hubungi kami untuk proses migrasi. <b>Layanan internet pelanggan Anda
+tetap berjalan normal</b> selama proses ini.</p>
+${WA?`<a href="https://wa.me/${WA}">Hubungi Kami via WhatsApp</a>`:''}
+<div class=v>SimBill</div></div></body></html>`;
+http.createServer((q,r)=>{r.writeHead(503,{'Content-Type':'text/html; charset=utf-8','Retry-After':'3600','Cache-Control':'no-store'});r.end(HTML);})
+.listen(PORT,()=>console.log('[kunci-migrasi] halaman migrasi di :'+PORT));
+JSEOF
+
+  pm2 delete "$SVC" >/dev/null 2>&1 || true
+  KUNCI_PORT="$port" KUNCI_WA="${SIMBILL_KONTAK_WA:-}" \
+    pm2 start "$lock_js" --name "$SVC" >/dev/null 2>&1 || true
+  pm2 save >/dev/null 2>&1 || true
+  date '+%Y-%m-%d %H:%M:%S %Z' > "$lock_dir/aktif"
+}
+
 SEBELUM=$(jalan_apa)
-if [ "$SEBELUM" = "js" ] && [ "${SIMBILL_IZINKAN_JS:-0}" != "1" ]; then
-  cat <<PESAN
-
-==> DIHENTIKAN — instalasi ini masih menjalankan kode .js lama.
-
-    Service '$SVC' saat ini menjalankan:
-      $(tr '\0' ' ' < /proc/$(pm2 pid "$SVC" 2>/dev/null | tr -d ' \r\n')/cmdline 2>/dev/null)
-
-    Skrip ini hanya mengganti binary, node_modules, frontend, dan VERSION.
-    Ia TIDAK PERNAH menyentuh backend/*.js. Kalau diteruskan:
-      - nomor versi naik dan tampilan panel berganti,
-      - tetapi kode yang melayani TETAP yang lama (update yang terlihat
-        berhasil padahal tidak berpengaruh sama sekali),
-      - dan backend/node_modules ditimpa milik binary, sehingga fitur yang
-        bergantung padanya bisa mati diam-diam.
-
-    Yang dibutuhkan lebih dulu: pindahkan service ke binary.
-      1) pastikan $HOME_DIR/.env ADA — binary tidak membaca backend/.env —
-         dan JWT_SECRET di dalamnya SAMA PERSIS dengan install lama
-         (kalau berbeda, semua sesi pelanggan langsung invalid)
-      2) pm2 delete $SVC                 # delete, bukan stop
-      3) pm2 start $HOME_DIR/simbill --name $SVC \\
-             --cwd $HOME_DIR --interpreter none
-      4) pm2 save
-    Lalu jalankan update ini lagi.
-
-    Lewati penjaga ini HANYA bila Anda paham akibatnya:
-      SIMBILL_IZINKAN_JS=1 bash update.sh
-
-PESAN
-  exit 2
+if [ "$SEBELUM" = "js" ] && [ "${SIMBILL_JANGAN_KUNCI:-0}" != "1" ]; then
+  echo
+  echo "==> Instalasi ini masih menjalankan kode .js lama."
+  echo "    Panel akan DIKUNCI dengan halaman migrasi. DB & RADIUS tidak disentuh,"
+  echo "    internet pelanggan tetap jalan. Buka kunci = konversi ke binary."
+  kunci_js
+  port_c="$(grep -E '^PORT=' "$HOME_DIR/.env" 2>/dev/null | head -1 | cut -d= -f2 | tr -d ' \r')"
+  sleep 1
+  kode=$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 "http://127.0.0.1:${port_c:-3000}/" 2>/dev/null || echo '?')
+  echo "==> TERKUNCI (panel HTTP $kode = halaman migrasi). Hubungi kami untuk"
+  echo "    dipindahkan ke SimBill Binary. Buka: konversi-ke-binary.sh"
+  exit 5
 fi
 [ "$SEBELUM" = "?" ] && echo "    (catatan: jenis instalasi tak bisa dipastikan — pm2 tidak ada atau service tak terdaftar)"
 
