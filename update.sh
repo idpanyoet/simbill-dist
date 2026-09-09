@@ -1,10 +1,17 @@
 #!/bin/bash
 # ============================================================================
-#  update.sh v7 — updater SimBill (binary). Backup + rollback aman.
+#  update.sh v8 — updater SimBill (binary). Backup + rollback aman.
 #  Chrome TIDAK diunduh ulang. node_modules -> backend/.
 #  Add-on (WAHA/Mandiri/ACS) TIDAK disentuh default (mereka self-restart via
 #  pm2/docker/systemd). Refresh add-on: SIMBILL_UPDATE_ADDONS=1 bash update.sh
 #
+#  v8 (9 Sep 2026) — node_modules & native TIDAK lagi dihapus lebih dulu.
+#   Arsip diuji, diekstrak ke staging, lalu ditukar lewat rename. Dua kegagalan
+#   yang dulu mungkin: (a) unduhan terpotong menghapus 142 MB modul permanen
+#   sementara skrip tetap melapor sukses, (b) jendela beberapa detik saat pohon
+#   modul tak lengkap & simbill_license.node ditimpa di tempat — proses yang
+#   start di jendela itu membaca addon separuh, dan verifikasi lisensi yang
+#   fail-closed membuat panel 403.
 #  v7 (8 Sep 2026) — VERSION ditulis SEBELUM restart. Saat update dipicu dari
 #   PANEL, update.sh adalah ANAK dari proses billing-radius; `pm2 restart
 #   billing-radius` membunuhnya sebelum baris tulis-VERSION (yang di v5/v6
@@ -137,9 +144,59 @@ if [ "$NEW_VER" = "?" ] || [ "$NEW_VER" != "$CUR_VER" ]; then
     || { echo "GAGAL unduh — service TIDAK diganggu."; exit 1; }
   chmod +x "$HOME_DIR/simbill.new"
 
+  # ── node_modules + native: SIAPKAN DULU, baru tukar ───────────────────────
+  # Dulu: `rm -rf backend/node_modules` lalu ekstrak di tempat. DUA bahaya, dan
+  # keduanya terjadi selagi service MASIH HIDUP (restart baru di baris terakhir):
+  #
+  #   1. Unduhan rusak/terpotong -> yang lama SUDAH terhapus, `tar xzf` gagal,
+  #      dan `|| true` menelan galatnya. Instalasi kehilangan 414 paket (142 MB)
+  #      PERMANEN, sementara skrip lanjut menukar binary, menulis VERSION baru,
+  #      dan melapor "berhasil".
+  #   2. Selama detik-detik ekstraksi, pohon modul TIDAK LENGKAP. Proses yang
+  #      kebetulan start di jendela itu (pm2 menghidupkan ulang sesudah crash,
+  #      cron `--job` tiap 2 menit) memuat pohon separuh jadi. Yang paling
+  #      menyakitkan: `backend/native/simbill_license.node` ditimpa DI TEMPAT —
+  #      addon terbaca separuh = verifikasi lisensi fail-closed = panel 403.
+  #
+  # Sekarang: uji arsipnya dulu -> ekstrak ke staging -> tukar lewat rename
+  # (sekejap) -> buang yang lama. Gagal di titik mana pun, pohon lama TIDAK
+  # PERNAH disentuh dan service tetap punya modul lengkap.
   if wget -q "$BASE/node_modules.tar.gz" -O /tmp/sb-nm.tar.gz; then
-    rm -rf "$HOME_DIR/backend/node_modules"
-    tar xzf /tmp/sb-nm.tar.gz -C "$HOME_DIR/backend" && rm -f /tmp/sb-nm.tar.gz || true
+    NM_SIAP=0
+    if ! tar tzf /tmp/sb-nm.tar.gz >/dev/null 2>&1; then
+      echo "!! node_modules.tar.gz rusak/terpotong — DILEWATI, modul lama tetap utuh."
+    else
+      rm -rf "$HOME_DIR/backend/.nm-siap"
+      # Ekstrak ke staging di filesystem yang SAMA supaya penukarannya rename,
+      # bukan salin. Kehabisan disk / disk read-only pun gagalnya di sini, bukan
+      # di pohon hidup. `set -e` aktif, jadi mkdir & tar WAJIB diuji lewat `if` —
+      # kalau dibiarkan telanjang, gagalnya menghentikan SELURUH update.
+      if ! mkdir -p "$HOME_DIR/backend/.nm-siap" 2>/dev/null; then
+        echo "!! tak bisa membuat staging (disk penuh / read-only) — node_modules DILEWATI, modul lama tetap utuh."
+      elif tar xzf /tmp/sb-nm.tar.gz -C "$HOME_DIR/backend/.nm-siap" 2>/dev/null; then
+        NM_SIAP=1
+      else
+        echo "!! ekstrak node_modules GAGAL (disk penuh / arsip cacat) — modul lama tetap utuh."
+        rm -rf "$HOME_DIR/backend/.nm-siap"
+      fi
+    fi
+    if [ "$NM_SIAP" = 1 ]; then
+      for d in node_modules native; do
+        if [ -d "$HOME_DIR/backend/.nm-siap/$d" ]; then
+          rm -rf "$HOME_DIR/backend/$d.lama"
+          if [ -e "$HOME_DIR/backend/$d" ]; then
+            mv "$HOME_DIR/backend/$d" "$HOME_DIR/backend/$d.lama"
+          fi
+          mv "$HOME_DIR/backend/.nm-siap/$d" "$HOME_DIR/backend/$d"
+          # Proses yang sedang jalan tetap memegang inode modul yang sudah
+          # dimuat, jadi membuang direktori lama di sini aman; require yang
+          # BARU akan menemukan pohon baru di nama path yang sama.
+          rm -rf "$HOME_DIR/backend/$d.lama"
+        fi
+      done
+      rm -rf "$HOME_DIR/backend/.nm-siap"
+    fi
+    rm -f /tmp/sb-nm.tar.gz
   fi
 
   cp -f "$HOME_DIR/simbill" "$HOME_DIR/simbill.bak" 2>/dev/null || true
