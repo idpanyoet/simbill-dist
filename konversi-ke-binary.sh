@@ -61,6 +61,24 @@ grep -q '^TZ='          "$HOME_DIR/.env" || echo "TZ=Asia/Jakarta"        >> "$H
 chmod 600 "$HOME_DIR/.env"
 [ -n "$(grep '^JWT_SECRET=' "$HOME_DIR/.env")" ] && hijau "    JWT_SECRET ada (sesi login dipertahankan)" || merah "    ⚠ JWT_SECRET kosong!"
 
+echo "==> [3b/5] Arahkan in-app update ke repo BINARY (simbill-dist)"
+# Konversi memakai SIMBILL_SKIP_DB=1, sehingga setup-db.sh — satu-satunya yang
+# menanam github_owner/repo/branch — TIDAK pernah jalan. Tanpa ketiga setting itu
+# routes/update.js jatuh ke default lama 'SimBill-Project'/'master': repo SUMBER
+# yang kini PRIVAT, jadi tombol Update di panel MATI selamanya (404, panel bilang
+# "repo privat / belum ada release"). Hanya mengisi yang kosong / yang masih
+# menunjuk repo mati — setelan kustom milik pelanggan TIDAK ditimpa.
+if MYSQL_PWD="${DB_PASS}" mysql -h"${DB_HOST:-localhost}" -u"${DB_USER}" "${DB_NAME}" <<'SQLGH' 2>/dev/null
+INSERT IGNORE INTO setting (kunci,nilai) VALUES
+  ('github_owner','idpanyoet'),('github_repo','simbill-dist'),('github_branch','main');
+UPDATE setting SET nilai='idpanyoet'    WHERE kunci='github_owner'  AND (nilai IS NULL OR nilai='');
+UPDATE setting SET nilai='simbill-dist' WHERE kunci='github_repo'   AND (nilai IS NULL OR nilai='' OR nilai='SimBill-Project');
+UPDATE setting SET nilai='main'         WHERE kunci='github_branch' AND (nilai IS NULL OR nilai='' OR nilai='master');
+SQLGH
+then hijau "    in-app update -> idpanyoet/simbill-dist (main)"
+else merah "    x gagal menulis setting github_* — update dari panel mungkin tetap mati"
+fi
+
 echo "==> [4/5] Arahkan pm2 ke binary"
 pm2 delete "$SVC" >/dev/null 2>&1 || true
 ( cd "$HOME_DIR" && pm2 start "$HOME_DIR/simbill" --name "$SVC" --cwd "$HOME_DIR" --interpreter none >/dev/null 2>&1 )

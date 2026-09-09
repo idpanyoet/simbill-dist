@@ -216,6 +216,27 @@ if [ "$NEW_VER" = "?" ] || [ "$NEW_VER" != "$CUR_VER" ]; then
   rm -f "$HOME_DIR"/backend/server.js.bak* "$HOME_DIR"/backend/package-lock.json.bak \
         "$HOME_DIR"/backend/node-routeros-*.tgz 2>/dev/null || true
 
+  # ── Sembuhkan arah in-app update (idempoten, aman) ────────────────────────
+  # Instalasi hasil konversi tak pernah di-seed github_* (SIMBILL_SKIP_DB=1), dan
+  # default lama di routes/update.js menunjuk 'SimBill-Project'/'master' — repo
+  # SUMBER yang kini PRIVAT. Akibatnya tombol Update di panel mati, dan pemiliknya
+  # tak punya cara memperbaikinya sendiri: ketiga setting itu TIDAK ada di UI.
+  # Diperbaiki di sini supaya sembuh sendiri pada update pertama yang berhasil.
+  # Hanya mengisi yang kosong / yang masih menunjuk repo mati.
+  if command -v mysql >/dev/null 2>&1 && [ -f "$HOME_DIR/.env" ]; then
+    _env() { sed -n "s/^$1=//p" "$HOME_DIR/.env" 2>/dev/null | head -1 | tr -d '\r' | tr -d '"' | tr -d "'"; }
+    _DBN="$(_env DB_NAME)"; _DBU="$(_env DB_USER)"; _DBP="$(_env DB_PASS)"; _DBH="$(_env DB_HOST)"
+    if [ -n "$_DBN" ] && [ -n "$_DBU" ]; then
+      MYSQL_PWD="$_DBP" mysql -h"${_DBH:-localhost}" -u"$_DBU" "$_DBN" <<'SQLGH' 2>/dev/null || true
+INSERT IGNORE INTO setting (kunci,nilai) VALUES
+  ('github_owner','idpanyoet'),('github_repo','simbill-dist'),('github_branch','main');
+UPDATE setting SET nilai='idpanyoet'    WHERE kunci='github_owner'  AND (nilai IS NULL OR nilai='');
+UPDATE setting SET nilai='simbill-dist' WHERE kunci='github_repo'   AND (nilai IS NULL OR nilai='' OR nilai='SimBill-Project');
+UPDATE setting SET nilai='main'         WHERE kunci='github_branch' AND (nilai IS NULL OR nilai='' OR nilai='master');
+SQLGH
+    fi
+  fi
+
   # ── Tentukan cara restart DULU (jangan tulis VERSION kalau tak ada cara
   #    menjalankan binary baru). .js sudah dikunci di atas, jadi di titik ini
   #    instalasi pasti binary.
