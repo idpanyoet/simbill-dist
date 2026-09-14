@@ -175,6 +175,15 @@ print('  filter_username dinonaktifkan: ' + (', '.join('%s=%d' % kv for kv in so
 PYFILT
 fi
 
+# 3c) NAS-IP-Address = alamat pengirim paket yang sebenarnya (authorize + preacct sesudah acct_unique).
+#     NAS terdaftar mana pun bisa mengaku ber-IP router lain → kunci router reseller bisa dilewati,
+#     dan router yang melaporkan IP tak terdaftar tercatat di radacct dgn IP tanpa secret (CoA gagal).
+#     Skrip terpisah supaya instalasi lama bisa memasangnya juga: bash pasang-nas-ip-asli.sh --restart
+_NASIP="$(dirname "$0")/pasang-nas-ip-asli.sh"
+# install.sh mengunduh tiap skrip sendiri ke /tmp → ambil pasangannya dari repo bila tak ada di sebelah.
+[ -f "$_NASIP" ] || { _NASIP=/tmp/pasang-nas-ip-asli.sh; wget -q "https://raw.githubusercontent.com/idpanyoet/simbill-dist/main/pasang-nas-ip-asli.sh" -O "$_NASIP" 2>/dev/null || rm -f "$_NASIP"; }
+if [ -f "$_NASIP" ]; then bash "$_NASIP" >/dev/null 2>&1 && c_ok "NAS-IP-Address mengikuti alamat pengirim." || c_err "Pasang NAS-IP asli gagal (lihat: bash $_NASIP)"; fi
+
 # 4) Hak akses (freerad perlu baca config berisi password DB)
 chgrp -h freerad "${RADDIR}mods-enabled/sql" 2>/dev/null || true
 chown freerad:freerad "$SQLMOD" 2>/dev/null || true
