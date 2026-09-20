@@ -237,6 +237,58 @@ SQLGH
     fi
   fi
 
+  # ── Setel InnoDB buffer pool SEKALI SAJA (server yang memang lapang) ──────
+  # Bawaan MariaDB 128 MB. Tabel RADIUS tumbuh cepat — di satu ISP dengan 1.300
+  # pelanggan radacct 304 MB + radpostauth 223 MB — sehingga hampir semua
+  # hitungan laporan terpaksa dibaca DARI DISK; halaman Beranda terukur melompat
+  # 0,4 dtk sampai 7 dtk di mesin yang sama. Dengan pool 25% RAM, isinya muat di
+  # memori dan waktunya stabil di bawah 0,6 dtk.
+  #
+  # Dikerjakan HANYA bila SEMUA syarat ini terpenuhi (kalau tidak: dilewati diam-diam):
+  #   · RAM server  > 2 GB            → VPS kecil dibiarkan apa adanya
+  #   · sisa memori > pool + 512 MB   → jangan sampai MariaDB gagal start
+  #   · MariaDB LOKAL (DB_HOST kosong/localhost) dan dikelola systemd
+  #   · pool sekarang masih bawaan (≤ 256 MB)
+  #   · belum ada berkas setelan kita → ISP yang sudah menyetel sendiri TAK ditimpa
+  # Restart MariaDB ±7 detik dan dilakukan di jendela update yang memang sudah
+  # mengganggu; sesi PPPoE yang berjalan TIDAK putus (dipegang router), hanya
+  # auth/accounting baru tertunda beberapa detik. Kalau MariaDB gagal hidup
+  # dengan setelan baru, berkasnya DIBATALKAN dan MariaDB dihidupkan lagi apa
+  # adanya. Matikan seluruh langkah ini dengan SIMBILL_SKIP_DBTUNE=1.
+  if [ "${SIMBILL_SKIP_DBTUNE:-0}" != "1" ] && command -v mysql >/dev/null 2>&1 && [ -f "$HOME_DIR/.env" ]; then
+    _envv() { sed -n "s/^$1=//p" "$HOME_DIR/.env" 2>/dev/null | head -1 | tr -d '\r' | tr -d '"' | tr -d "'"; }
+    _DBH2="$(_envv DB_HOST)"; _DBU2="$(_envv DB_USER)"; _DBP2="$(_envv DB_PASS)"
+    _CNFDIR=""
+    for d in /etc/mysql/mariadb.conf.d /etc/mysql/conf.d /etc/my.cnf.d; do [ -d "$d" ] && _CNFDIR="$d" && break; done
+    _SVCDB=""
+    for u in mariadb mysql mysqld; do systemctl list-unit-files 2>/dev/null | grep -q "^$u\.service" && _SVCDB="$u" && break; done
+    _RAM=$(free -m 2>/dev/null | awk '/^Mem:/{print $2}')
+    _SISA=$(free -m 2>/dev/null | awk '/^Mem:/{print $7}')
+    case "${_DBH2:-localhost}" in localhost|127.0.0.1|"") _LOKAL=1 ;; *) _LOKAL=0 ;; esac
+    if [ "$_LOKAL" = "1" ] && [ -n "$_CNFDIR" ] && [ -n "$_SVCDB" ] && [ ! -f "$_CNFDIR/70-simbill.cnf" ] \
+       && [ -n "$_RAM" ] && [ "$_RAM" -gt 2048 ]; then
+      _POOL=$(( _RAM / 4 )); [ "$_POOL" -lt 256 ] && _POOL=256; [ "$_POOL" -gt 2048 ] && _POOL=2048
+      _POOL_KINI=$(MYSQL_PWD="$_DBP2" mysql -h"${_DBH2:-localhost}" -u"$_DBU2" -N -s \
+                   -e "SELECT @@innodb_buffer_pool_size DIV 1048576" 2>/dev/null | tr -d ' \r')
+      if [ -n "$_POOL_KINI" ] && [ "$_POOL_KINI" -le 256 ] \
+         && [ -n "$_SISA" ] && [ "$_SISA" -gt $(( _POOL + 512 )) ]; then
+        echo "==> Setel InnoDB buffer pool ${_POOL}M (RAM ${_RAM}M, sekarang ${_POOL_KINI}M) — MariaDB restart ~7 detik..."
+        printf '# Penyetelan SimBill (dibuat update.sh). Hapus berkas ini untuk kembali ke bawaan.\n[mysqld]\ninnodb_buffer_pool_size = %sM\n' "$_POOL" > "$_CNFDIR/70-simbill.cnf"
+        systemctl restart "$_SVCDB" >/dev/null 2>&1
+        _SIAP=0
+        for i in $(seq 1 60); do MYSQL_PWD="$_DBP2" mysqladmin -h"${_DBH2:-localhost}" -u"$_DBU2" ping >/dev/null 2>&1 && _SIAP=1 && break; sleep 1; done
+        if [ "$_SIAP" != "1" ]; then
+          rm -f "$_CNFDIR/70-simbill.cnf"
+          systemctl restart "$_SVCDB" >/dev/null 2>&1
+          for i in $(seq 1 60); do MYSQL_PWD="$_DBP2" mysqladmin -h"${_DBH2:-localhost}" -u"$_DBU2" ping >/dev/null 2>&1 && break; sleep 1; done
+          echo "    !! MariaDB tak mau hidup dengan setelan itu — DIBATALKAN, kembali ke bawaan."
+        else
+          echo "    buffer pool sekarang: $(MYSQL_PWD="$_DBP2" mysql -h"${_DBH2:-localhost}" -u"$_DBU2" -N -s -e 'SELECT @@innodb_buffer_pool_size DIV 1048576' 2>/dev/null)M"
+        fi
+      fi
+    fi
+  fi
+
   # ── Tentukan cara restart DULU (jangan tulis VERSION kalau tak ada cara
   #    menjalankan binary baru). .js sudah dikunci di atas, jadi di titik ini
   #    instalasi pasti binary.
