@@ -119,7 +119,23 @@ if [ "$ARCH_TAG" = "amd64" ]; then
     echo "   !! Gagal unduh Chrome. PDF server-side tak jalan sampai Chrome dipasang."
   fi
 else
-  echo "==> arm64: pakai Chromium OS: apt-get install -y chromium (set PUPPETEER_EXECUTABLE_PATH di .env)"
+  # arm64: Chrome-for-Testing hanya terbit untuk linux64, jadi pakai Chromium
+  # bawaan distro. Dulu baris ini cuma MENYURUH pasang manual -> di mesin arm64
+  # PDF invoice mati diam-diam. Sekarang dipasang beneran lalu DIBUKTIKAN jalan
+  # (--version) sebelum dicatat ke .env; kalau tidak ada, katakan terus terang.
+  echo "==> arm64: pasang Chromium dari repo OS (buat PDF invoice)..."
+  apt-get install -y -qq chromium 2>/dev/null \
+    || apt-get install -y -qq chromium-browser 2>/dev/null || true
+  for c in /usr/bin/chromium /usr/bin/chromium-browser /snap/bin/chromium; do
+    if [ -x "$c" ] && "$c" --version >/dev/null 2>&1; then CHROME_BIN="$c"; break; fi
+  done
+  if [ -n "$CHROME_BIN" ]; then
+    echo "   Chromium: $CHROME_BIN ($("$CHROME_BIN" --version 2>/dev/null))"
+  else
+    echo "   !! Chromium arm64 TIDAK terpasang — PDF invoice mati sampai dipasang manual:"
+    echo "      apt-get install -y chromium   (Ubuntu: chromium-browser / snap install chromium)"
+    echo "      lalu isi PUPPETEER_EXECUTABLE_PATH=<path chromium> di $HOME_DIR/.env"
+  fi
 fi
 
 # 7) .env skeleton (SIMBILL_HOME/TZ/PUPPETEER). DB+JWT diisi setup-db.sh.
