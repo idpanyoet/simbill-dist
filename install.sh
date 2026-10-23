@@ -72,10 +72,14 @@ run_addon() {  # $1=file  $2=label  $3=skip
   fi
 }
 
-# 1) BINARY
+# 1) BINARY — unduh ke berkas sementara lalu ganti lewat mv. Binary yang SEDANG jalan (pasang ulang /
+#    upgrade) tak bisa ditimpa langsung ("Text file busy", 23 Okt 2026); mv hanya mengganti nama berkas,
+#    proses lama tetap memakai salinannya sampai pm2 restart di langkah 10.
 echo "==> Unduh binary..."
-wget -q --show-progress "$BASE/$BIN" -O "$HOME_DIR/simbill" || { echo "GAGAL unduh binary."; exit 1; }
-chmod +x "$HOME_DIR/simbill"
+wget -q --show-progress "$BASE/$BIN" -O "$HOME_DIR/simbill.baru" \
+  || { rm -f "$HOME_DIR/simbill.baru"; echo "GAGAL unduh binary."; exit 1; }
+chmod +x "$HOME_DIR/simbill.baru" && mv -f "$HOME_DIR/simbill.baru" "$HOME_DIR/simbill" \
+  || { echo "GAGAL memasang binary."; exit 1; }
 
 # 2) node_modules -> backend/node_modules
 echo "==> Unduh node_modules..."
