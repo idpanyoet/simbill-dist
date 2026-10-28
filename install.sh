@@ -59,6 +59,30 @@ fi
 command -v node >/dev/null 2>&1 && echo "    node $(node -v)"
 command -v pm2  >/dev/null 2>&1 && echo "    pm2 siap" || echo "    !! pm2 belum kepasang — SimBill tak bisa di-start otomatis"
 
+# 0b) Gerbang rilis server lisensi (28 Okt 2026): SIMBILL_KEY=<kunci lisensi> → unduhan lewat
+#     server lisensi (lisensi aktif + hwid cocok/belum terikat). Wajib bila repo rilis privat.
+#     hwid dihitung persis seperti services/license.js (machine-id | MAC pertama | hostname).
+if [ -n "${SIMBILL_KEY:-}" ]; then
+  HWID=$(node -e '
+    const fs=require("fs"),os=require("os"),c=require("crypto");let m="";
+    for (const f of ["/etc/machine-id","/var/lib/dbus/machine-id"]) { if (!m) try { m=fs.readFileSync(f,"utf8").trim(); } catch(e){} }
+    let mac=""; const n=os.networkInterfaces();
+    for (const k of Object.keys(n)) { for (const i of n[k]||[]) if (!i.internal && i.mac && i.mac!=="00:00:00:00:00:00") { mac=i.mac; break; } if (mac) break; }
+    const h=c.createHash("sha256").update(m+"|"+mac+"|"+os.hostname()).digest("hex");
+    console.log([h.slice(0,8),h.slice(8,12),h.slice(12,16),h.slice(16,20),h.slice(20,32)].join("-"));')
+  GERBANG=$(curl -fsS -m 20 -X POST "${SIMBILL_LICENSE_URL:-https://license.cmi.my.id}/api/rilis/token" \
+    -H 'Content-Type: application/json' \
+    -d "{\"key\":\"$(printf '%s' "$SIMBILL_KEY" | tr -cd 'A-Za-z0-9-')\",\"hwid\":\"$HWID\"}" 2>/dev/null || true)
+  G_BASE=$(printf '%s' "$GERBANG" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);if(/^https:\/\/[A-Za-z0-9:\/._-]+$/.test(j.base||""))console.log(j.base)}catch(e){}})')
+  G_RAW=$(printf '%s' "$GERBANG" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);if(/^https:\/\/[A-Za-z0-9:\/._-]+$/.test(j.raw||""))console.log(j.raw)}catch(e){}})')
+  if [ -n "$G_BASE" ] && [ -n "$G_RAW" ]; then
+    BASE="$G_BASE"; RAW="$G_RAW"; echo "==> Unduhan lewat gerbang lisensi (hwid $HWID)"
+  else
+    echo "!! Kunci lisensi ditolak / server lisensi tak terjangkau: $(printf '%s' "$GERBANG" | tr -cd '[:print:]' | head -c 200)"
+    echo "   Hubungi penjual SimBill. Instalasi dihentikan."; exit 1
+  fi
+fi
+
 # ── run_addon: ambil script dari RAW, jalankan (guarded, non-fatal) ────────
 run_addon() {  # $1=file  $2=label  $3=skip
   local script="$1" label="$2" skip="$3"

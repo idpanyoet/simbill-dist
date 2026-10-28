@@ -34,7 +34,7 @@
 # ============================================================================
 set -e
 REPO="idpanyoet/simbill-dist"
-BASE="https://github.com/$REPO/releases/latest/download"
+BASE="${SIMBILL_BASE:-https://github.com/$REPO/releases/latest/download}"   # SIMBILL_BASE: gerbang rilis server lisensi (28 Okt 2026)
 RAW="${SIMBILL_RAW:-https://raw.githubusercontent.com/$REPO/main}"
 HOME_DIR="/opt/simbill"; SVC="billing-radius"
 
