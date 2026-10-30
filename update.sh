@@ -1,6 +1,8 @@
 #!/bin/bash
 # ============================================================================
-#  update.sh v8 — updater SimBill (binary). Backup + rollback aman.
+#  update.sh v9 — updater SimBill (binary). Backup + rollback aman.
+#  v9 (30 Okt 2026) — unduhan ringkas: binary .xz + sha256, node_modules dilewati
+#   bila sidiknya sama (157 MB -> ±30 MB). Rilis lama otomatis jalur penuh.
 #  Chrome TIDAK diunduh ulang. node_modules -> backend/.
 #  Add-on (WAHA/Mandiri/ACS) TIDAK disentuh default (mereka self-restart via
 #  pm2/docker/systemd). Refresh add-on: SIMBILL_UPDATE_ADDONS=1 bash update.sh
@@ -45,6 +47,33 @@ case "$ARCH" in
   *) echo "Arsitektur tak didukung: $ARCH"; exit 1 ;;
 esac
 echo "==> Update SimBill ($ARCH)..."
+
+# ── Unduhan ringkas (30 Okt 2026) ──────────────────────────────────────────
+# Jalur internasional ISP Indonesia di jam sibuk bisa turun ke ±80 KB/dtk; binary
+# 129 MB + node_modules 25 MB = 25–30 menit, dan panel tampak "gagal update".
+# Kini binary diambil dalam bentuk .xz (±28 MB) lalu dicocokkan dengan sha256
+# rilis; node_modules dilewati bila sidiknya sama dengan yang terpasang. Rilis
+# lama tanpa aset ringkas / mesin tanpa xz -> otomatis jalur penuh seperti dulu.
+sha_rilis() {   # $1 = nama aset .sha256 -> 64 hex, atau kosong
+  wget -qO- "$BASE/$1" 2>/dev/null | tr -dc 'a-f0-9' | head -c 64 || true
+}
+unduh_binary() {   # -> $HOME_DIR/simbill.new terverifikasi
+  local sha; sha=$(sha_rilis "$BIN.sha256")
+  if [ ${#sha} = 64 ] && command -v xz >/dev/null 2>&1; then
+    echo "    unduh binary ringkas ($BIN.xz)..."
+    if wget -q --show-progress "$BASE/$BIN.xz" -O /tmp/sb-bin.xz \
+       && xz -dc /tmp/sb-bin.xz > "$HOME_DIR/simbill.new" \
+       && [ "$(sha256sum "$HOME_DIR/simbill.new" | cut -c1-64)" = "$sha" ]; then
+      rm -f /tmp/sb-bin.xz; return 0
+    fi
+    rm -f /tmp/sb-bin.xz
+    echo "    (unduhan ringkas gagal — beralih ke unduhan penuh)"
+  fi
+  wget -q --show-progress "$BASE/$BIN" -O "$HOME_DIR/simbill.new" || return 1
+  if [ ${#sha} = 64 ] && [ "$(sha256sum "$HOME_DIR/simbill.new" | cut -c1-64)" != "$sha" ]; then
+    echo "!! sha256 binary tidak cocok dengan rilis (unduhan rusak)"; return 1
+  fi
+}
 
 # ── Apa yang SEBENARNYA dijalankan service? ─────────────────────────────────
 # Dibaca dari cmdline proses, BUKAN dari nama berkas: instalasi binary pun
@@ -140,8 +169,7 @@ echo "    $CUR_VER -> $NEW_VER"
   && { echo "==> Sudah terbaru."; exit 0; }
 
 if [ "$NEW_VER" = "?" ] || [ "$NEW_VER" != "$CUR_VER" ]; then
-  wget -q --show-progress "$BASE/$BIN" -O "$HOME_DIR/simbill.new" \
-    || { echo "GAGAL unduh — service TIDAK diganggu."; exit 1; }
+  unduh_binary || { rm -f "$HOME_DIR/simbill.new"; echo "GAGAL unduh — service TIDAK diganggu."; exit 1; }
   chmod +x "$HOME_DIR/simbill.new"
 
   # ── node_modules + native: SIAPKAN DULU, baru tukar ───────────────────────
@@ -161,7 +189,13 @@ if [ "$NEW_VER" = "?" ] || [ "$NEW_VER" != "$CUR_VER" ]; then
   # Sekarang: uji arsipnya dulu -> ekstrak ke staging -> tukar lewat rename
   # (sekejap) -> buang yang lama. Gagal di titik mana pun, pohon lama TIDAK
   # PERNAH disentuh dan service tetap punya modul lengkap.
-  if wget -q "$BASE/node_modules.tar.gz" -O /tmp/sb-nm.tar.gz; then
+  # Sidik node_modules (+native) dari rilis; sama dengan yang terpasang -> tak
+  # perlu diunduh. Sidik disimpan HANYA sesudah penukaran berhasil.
+  NM_SHA=$(sha_rilis node_modules.sha256)
+  NM_SHA_LAMA=$(tr -dc 'a-f0-9' < "$HOME_DIR/backend/.nm.sha256" 2>/dev/null | head -c 64 || true)
+  if [ ${#NM_SHA} = 64 ] && [ "$NM_SHA" = "$NM_SHA_LAMA" ] && [ -d "$HOME_DIR/backend/node_modules" ]; then
+    echo "    node_modules tidak berubah — dilewati"
+  elif wget -q --show-progress "$BASE/node_modules.tar.gz" -O /tmp/sb-nm.tar.gz; then
     NM_SIAP=0
     if ! tar tzf /tmp/sb-nm.tar.gz >/dev/null 2>&1; then
       echo "!! node_modules.tar.gz rusak/terpotong — DILEWATI, modul lama tetap utuh."
@@ -195,6 +229,7 @@ if [ "$NEW_VER" = "?" ] || [ "$NEW_VER" != "$CUR_VER" ]; then
         fi
       done
       rm -rf "$HOME_DIR/backend/.nm-siap"
+      if [ ${#NM_SHA} = 64 ]; then echo "$NM_SHA" > "$HOME_DIR/backend/.nm.sha256"; else rm -f "$HOME_DIR/backend/.nm.sha256"; fi
     fi
     rm -f /tmp/sb-nm.tar.gz
   fi
